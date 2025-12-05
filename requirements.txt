@@ -1,0 +1,7 @@
+requests
+fastmcp
+langchain-community
+langchain-deepseek
+mcp
+langchain_mcp_adapters
+langgraph
