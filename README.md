@@ -1,11 +1,19 @@
 # Deepseek-CLI-Tool-Framework
 
 ## Intro
+<<<<<<< HEAD
 This is a CLI tool framework built using MCP (Model Control Protocol) and LangChain with Deepseek LLM integration. It provides a foundation for creating intelligent CLI applications that leverage LLM capabilities to execute commands and process natural language requests with context memory and customizable presets.
 
 ## Prerequisites
 To use this framework, you need to set up your Deepseek API KEY in the environment variable `DEEPSEEK_API_KEY` or directly in the client file. The main components include:
 - **deepseek-mcp-cli-client.py**: The client interface that handles user input, context memory, and interacts with the LLM
+=======
+This is a CLI tool built using MCP (Model Control Protocol) and LangChain with Deepseek LLM integration. It provides a foundation for creating intelligent CLI applications that leverage LLM capabilities to execute commands and process natural language requests.
+
+## Prerequisites
+To use this framework, you need to set up your Deepseek API KEY in the configuration files. The main components include:
+- **deepseek-mcp-cli-client.py**: The client interface that handles user input and interacts with the LLM
+>>>>>>> dd539538b6545588bf922be9bfd4ec7d28c089b6
 - **deepseek-mcp-cli-server.py**: The MCP server that exposes tools and executes commands
 
 ## Key Features
@@ -19,6 +27,10 @@ To use this framework, you need to set up your Deepseek API KEY in the environme
 - Modular architecture for easy extension
 
 ## Usage
+<<<<<<< HEAD
+=======
+Execute the client using command `python deepseek-mcp-cli-client.py`. You can customize the behavior by modifying the query and tools in the client and server files.
+>>>>>>> dd539538b6545588bf922be9bfd4ec7d28c089b6
 
 ### Interactive Mode
 Execute the client in interactive mode:
@@ -38,6 +50,7 @@ python deepseek-mcp-cli-client.py "What's in my current directory?"
 ```
 
 ## Getting Started
+<<<<<<< HEAD
 1. Install dependencies:
    ```bash
    pip install -r requirements.txt
@@ -53,6 +66,11 @@ python deepseek-mcp-cli-client.py "What's in my current directory?"
    ```bash
    python deepseek-mcp-cli-client.py
    ```
+=======
+1. Install dependencies: `pip install -r requirements.txt`
+2. Set up your Deepseek API KEY in the configuration
+4. Run the client: `python deepseek-mcp-cli-client.py`
+>>>>>>> dd539538b6545588bf922be9bfd4ec7d28c089b6
 
 ## Architecture
 The framework follows a client-server architecture:
