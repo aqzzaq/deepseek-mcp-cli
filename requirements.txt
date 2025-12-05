@@ -5,3 +5,4 @@ langchain-deepseek
 mcp
 langchain_mcp_adapters
 langgraph
+langchain
