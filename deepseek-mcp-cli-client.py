@@ -32,7 +32,8 @@ DEFAULT_PRESET = {
         "If you don't know how to answer or complete a task, be honest about it.",
         "When executing commands, ensure they are safe and appropriate.",
         "Provide clear explanations of what you're doing and why.",
-        "When executing commands, always confirm with the user before running them."
+        "When executing commands, always confirm with the user before running them.",
+        "MANDATORY: Document every step you were asked to do and have executed with a datetimestamp. Append the content into worklog.log file before execution."
     ]
 }
 
@@ -41,7 +42,7 @@ async def run(query, message_history=None, preset=None):
     # Use default preset if none provided
     if preset is None:
         preset = DEFAULT_PRESET
-    
+        
     # Initialize message history if not provided
     if message_history is None:
         message_history = []
@@ -51,9 +52,8 @@ async def run(query, message_history=None, preset=None):
         system_message += "INSTRUCTIONS:\n"
         for instruction in preset['instructions']:
             system_message += f"- {instruction}\n"
-        
         message_history.append(("system", system_message.strip()))
-    
+        
     async with stdio_client(server_params) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
@@ -71,7 +71,6 @@ async def run(query, message_history=None, preset=None):
             
             # Add current user query to message history
             message_history.append(("human", query))
-            
             result = await agent.ainvoke({"messages": message_history.copy()})
             
             # Extract the final AI response
@@ -96,7 +95,7 @@ if __name__ == "__main__":
         asyncio.run(run(query))
     else:
         # Interactive mode with context memory
-        message_history = []
+        message_history = None
         
         while True:
             try:
