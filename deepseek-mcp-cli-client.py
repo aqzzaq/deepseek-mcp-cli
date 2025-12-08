@@ -32,12 +32,11 @@ DEFAULT_PRESET = {
         "If you don't know how to answer or complete a task, be honest about it.",
         "When executing commands, ensure they are safe and appropriate.",
         "Provide clear explanations of what you're doing and why.",
-        "MANDATORY: When executing commands, always confirm with the user before running them.",
         "MANDATORY: Avoid interactive sessions or commands that require user input during execution as they will cause the CLI to get stuck.",
-        "MANDATORY: Document every step you execute with a datetimestamp. Note: All user requests are automatically logged to the worklog file.",
+        "MANDATORY: Document every step you execute and its corresponding result with a datetimestamp.",
+        "MANDATORY: For every response, document concised summary of the result in log file",
         "MANDATORY: Use the unique log filename provided in the system message for all worklog entries.",
-        "MANDATORY: When using tools that support it, always pass the correct log_filename parameter.",
-        "MANDATORY: All worklog entries must be appended to the specified log file before execution."
+        "MANDATORY: When using tools that support it, always pass the correct log_filename parameter."
     ]
 }
 
@@ -50,30 +49,32 @@ async def run(query, message_history=None, preset=None):
     if preset is None:
         preset = DEFAULT_PRESET
         
-    # Initialize message history if not provided or extract log filename if it exists
+    # Initialize session parameters
+    system_message = None
     log_filename = None
+    
     if message_history is None:
-        message_history = []
-        
         # Generate unique log filename for this session
         session_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         log_filename = f"worklog_{session_id}.log"
         
-        # Add preset to message history as system prompt
+        # Create system message with preset instructions and log filename
         system_message = f"ROLE: {preset['role']}\n"
         system_message += "INSTRUCTIONS:\n"
         for instruction in preset['instructions']:
             system_message += f"- {instruction}\n"
-        # Add log filename requirement to system message
         system_message += f"\nMANDATORY: All worklog entries must use this filename: {log_filename}"
-        message_history.append(("system", system_message.strip()))
+        
+        # Initialize message history with just the system message
+        message_history = [("system", system_message.strip())]
         
         print(f"\n=== Session Started ===")
         print(f"Log file: {log_filename}")
     else:
-        # Extract log filename from existing system message
+        # Extract system message and log filename
         for role, content in message_history:
             if role == "system":
+                system_message = content
                 match = re.search(r"MANDATORY: All worklog entries must use this filename: (worklog_\d{8}_\d{6}\.log)", content)
                 if match:
                     log_filename = match.group(1)
@@ -84,13 +85,26 @@ async def run(query, message_history=None, preset=None):
             session_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             log_filename = f"worklog_{session_id}.log"
     
-    # Log every user request, not just the first one
+    # Log current user request
     try:
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with open(log_filename, "a") as f:
             f.write(f"[{timestamp}] USER REQUEST: {query}\n")
     except Exception as e:
         print(f"Warning: Failed to log user request: {e}")
+    
+    # Read worklog content to use as context
+    worklog_context = ""
+    try:
+        with open(log_filename, "r") as f:
+            worklog_content = f.read()
+        if worklog_content:
+            worklog_context = "\n\n--- PREVIOUS INTERACTIONS (FROM WORKLOG) ---\n" + worklog_content + "\n--- END OF PREVIOUS INTERACTIONS ---"
+    except FileNotFoundError:
+        # Worklog might not exist yet for first interaction
+        pass
+    except Exception as e:
+        print(f"Warning: Failed to read worklog context: {e}")
     
     async with stdio_client(server_params) as (read, write):
         async with ClientSession(read, write) as session:
@@ -104,12 +118,14 @@ async def run(query, message_history=None, preset=None):
                     print(f"  - {tool.name}: {tool.description}")
                 print()
             
-            # Create agent and invoke with message history
-            agent = create_agent(llm, tools)
+            # Create a minimal message history with just the system message and current query
+            # The worklog_context provides the previous interactions as context
+            minimal_history = [("system", system_message.strip() + worklog_context)]
+            minimal_history.append(("human", query))
             
-            # Add current user query to message history
-            message_history.append(("human", query))
-            result = await agent.ainvoke({"messages": message_history.copy()})
+            # Create agent and invoke with minimal history + worklog context
+            agent = create_agent(llm, tools)
+            result = await agent.ainvoke({"messages": minimal_history.copy()})
             
             # Extract the final AI response
             ai_response = result["messages"][-1]
@@ -120,7 +136,8 @@ async def run(query, message_history=None, preset=None):
             print("\n=== Result ===")
             print(ai_response.content)
             
-            return message_history
+            # Return only the system message (not the full history) to reduce memory usage
+            return [("system", system_message.strip())]
 
 if __name__ == "__main__":
     print("=== Deepseek MCP CLI Client ===")
