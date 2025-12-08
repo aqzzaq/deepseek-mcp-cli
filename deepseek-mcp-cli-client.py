@@ -32,8 +32,9 @@ DEFAULT_PRESET = {
         "If you don't know how to answer or complete a task, be honest about it.",
         "When executing commands, ensure they are safe and appropriate.",
         "Provide clear explanations of what you're doing and why.",
-        "When executing commands, always confirm with the user before running them.",
-        "MANDATORY: Document every step you were asked to do and have executed with a datetimestamp.",
+        "MANDATORY: When executing commands, always confirm with the user before running them.",
+        "MANDATORY: Avoid interactive sessions or commands that require user input during execution as they will cause the CLI to get stuck.",
+        "MANDATORY: Document every step you execute with a datetimestamp. Note: All user requests are automatically logged to the worklog file.",
         "MANDATORY: Use the unique log filename provided in the system message for all worklog entries.",
         "MANDATORY: When using tools that support it, always pass the correct log_filename parameter.",
         "MANDATORY: All worklog entries must be appended to the specified log file before execution."
@@ -43,12 +44,14 @@ DEFAULT_PRESET = {
 
 async def run(query, message_history=None, preset=None):
     import datetime
+    import re
     
     # Use default preset if none provided
     if preset is None:
         preset = DEFAULT_PRESET
         
-    # Initialize message history if not provided
+    # Initialize message history if not provided or extract log filename if it exists
+    log_filename = None
     if message_history is None:
         message_history = []
         
@@ -67,7 +70,28 @@ async def run(query, message_history=None, preset=None):
         
         print(f"\n=== Session Started ===")
         print(f"Log file: {log_filename}")
+    else:
+        # Extract log filename from existing system message
+        for role, content in message_history:
+            if role == "system":
+                match = re.search(r"MANDATORY: All worklog entries must use this filename: (worklog_\d{8}_\d{6}\.log)", content)
+                if match:
+                    log_filename = match.group(1)
+                    break
         
+        # Generate a new log filename if none found (should rarely happen)
+        if not log_filename:
+            session_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            log_filename = f"worklog_{session_id}.log"
+    
+    # Log every user request, not just the first one
+    try:
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(log_filename, "a") as f:
+            f.write(f"[{timestamp}] USER REQUEST: {query}\n")
+    except Exception as e:
+        print(f"Warning: Failed to log user request: {e}")
+    
     async with stdio_client(server_params) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
