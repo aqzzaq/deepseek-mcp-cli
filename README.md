@@ -100,5 +100,27 @@ By default, the server provides these tools:
 - `read_file`: Read the content of a file
 - `execute_command`: Execute a shell command
 
+### Mandatory Worklog Feature
+
+The default preset includes a mandatory worklog requirement: all executed steps are automatically logged to a unique session log file with timestamps. This ensures a complete audit trail of all operations performed through the CLI.
+
+#### Worklog Features:
+- Each dialogue session gets its own unique log file
+- Filenames follow the pattern: `worklog_YYYYMMDD_HHMMSS.log`
+- All executed commands are automatically logged
+- Timestamped entries in `YYYY-MM-DD HH:MM:SS` format
+- Includes both the command/action and its result
+
+Example log filename:
+```
+worklog_20231101_143025.log
+```
+
+Example worklog entry:
+```
+[2023-11-01 14:30:25] Executing command: ls -la
+[2023-11-01 14:30:25] Command result - Exit code: 0
+```
+
 ## License
 MIT License

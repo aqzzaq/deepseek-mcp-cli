@@ -33,12 +33,17 @@ DEFAULT_PRESET = {
         "When executing commands, ensure they are safe and appropriate.",
         "Provide clear explanations of what you're doing and why.",
         "When executing commands, always confirm with the user before running them.",
-        "MANDATORY: Document every step you were asked to do and have executed with a datetimestamp. Append the content into worklog.log file before execution."
+        "MANDATORY: Document every step you were asked to do and have executed with a datetimestamp.",
+        "MANDATORY: Use the unique log filename provided in the system message for all worklog entries.",
+        "MANDATORY: When using tools that support it, always pass the correct log_filename parameter.",
+        "MANDATORY: All worklog entries must be appended to the specified log file before execution."
     ]
 }
 
 
 async def run(query, message_history=None, preset=None):
+    import datetime
+    
     # Use default preset if none provided
     if preset is None:
         preset = DEFAULT_PRESET
@@ -47,12 +52,21 @@ async def run(query, message_history=None, preset=None):
     if message_history is None:
         message_history = []
         
+        # Generate unique log filename for this session
+        session_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_filename = f"worklog_{session_id}.log"
+        
         # Add preset to message history as system prompt
         system_message = f"ROLE: {preset['role']}\n"
         system_message += "INSTRUCTIONS:\n"
         for instruction in preset['instructions']:
             system_message += f"- {instruction}\n"
+        # Add log filename requirement to system message
+        system_message += f"\nMANDATORY: All worklog entries must use this filename: {log_filename}"
         message_history.append(("system", system_message.strip()))
+        
+        print(f"\n=== Session Started ===")
+        print(f"Log file: {log_filename}")
         
     async with stdio_client(server_params) as (read, write):
         async with ClientSession(read, write) as session:
