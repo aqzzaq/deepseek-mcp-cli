@@ -1,6 +1,8 @@
 import os
 import asyncio
-import sys
+import argparse
+import datetime
+import re
 from langchain_deepseek import ChatDeepSeek
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -42,9 +44,6 @@ DEFAULT_PRESET = {
 
 
 async def run(query, message_history=None, preset=None, log_filename=None):
-    import datetime
-    import re
-    import os
     
     # Use default preset if none provided
     if preset is None:
@@ -145,7 +144,6 @@ async def run(query, message_history=None, preset=None, log_filename=None):
             return [("system", system_message.strip())]
 
 if __name__ == "__main__":
-    import argparse
     
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Deepseek MCP CLI Client")
