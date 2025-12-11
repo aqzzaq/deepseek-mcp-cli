@@ -43,51 +43,39 @@ DEFAULT_PRESET = {
 }
 
 
-async def run(query, message_history=None, preset=None, log_filename=None):
+async def run(query, preset=None, log_filename=None, system_message=None):
+    import datetime
+    import re
     
     # Use default preset if none provided
     if preset is None:
         preset = DEFAULT_PRESET
         
     # Initialize session parameters
-    system_message = None
-    
-    if message_history is None:
-        # Check if log_filename is provided and exists
-        if log_filename and os.path.exists(log_filename):
-            print(f"\n=== Session Continued ===")
-            print(f"Loading from log file: {log_filename}")
+    if not log_filename:
+        if system_message:
+            # Extract log filename from existing system message
+            match = re.search(r"MANDATORY: All worklog entries must use this filename: (.+)", system_message)
+            if match:
+                log_filename = match.group(1)
         
-        # Generate new log filename if not provided
+        # Generate new log filename if not provided or not found in system message
         if not log_filename:
             session_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             log_filename = f"worklog_{session_id}.log"
             print(f"\n=== Session Started ===")
             print(f"Log file: {log_filename}")
-        
-        # Create system message with preset instructions and log filename
+    elif os.path.exists(log_filename):
+        print(f"\n=== Session Continued ===")
+        print(f"Loading from log file: {log_filename}")
+    
+    # Create system message if none provided
+    if not system_message:
         system_message = f"ROLE: {preset['role']}\n"
         system_message += "INSTRUCTIONS:\n"
         for instruction in preset['instructions']:
             system_message += f"- {instruction}\n"
         system_message += f"\nMANDATORY: All worklog entries must use this filename: {log_filename}"
-        
-        # Initialize message history with just the system message
-        message_history = [("system", system_message.strip())]
-    else:
-        # Extract system message and log filename
-        for role, content in message_history:
-            if role == "system":
-                system_message = content
-                match = re.search(r"MANDATORY: All worklog entries must use this filename: (.+)", content)
-                if match:
-                    log_filename = match.group(1)
-                    break
-        
-        # Generate a new log filename if none found (should rarely happen)
-        if not log_filename:
-            session_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            log_filename = f"worklog_{session_id}.log"
     
     # Log current user request
     try:
@@ -116,7 +104,7 @@ async def run(query, message_history=None, preset=None, log_filename=None):
             tools = await load_mcp_tools(session)
             
             # Only show tools on first run
-            if len(message_history) == 1:  # Only system message
+            if not system_message or "MANDATORY: All worklog entries must use this filename:" not in system_message:
                 print("\nAvailable tools:")
                 for tool in tools:
                     print(f"  - {tool.name}: {tool.description}")
@@ -134,14 +122,11 @@ async def run(query, message_history=None, preset=None, log_filename=None):
             # Extract the final AI response
             ai_response = result["messages"][-1]
             
-            # Add AI response to message history
-            message_history.append((ai_response.type, ai_response.content))
-            
             print("\n=== Result ===")
             print(ai_response.content)
             
-            # Return only the system message (not the full history) to reduce memory usage
-            return [("system", system_message.strip())]
+            # Return only the system message to maintain session context
+            return system_message.strip()
 
 if __name__ == "__main__":
     
@@ -155,13 +140,13 @@ if __name__ == "__main__":
     print("Type 'exit' to quit.")
     print("\nEnter your command or query:")
     
-    # Initialize message_history
-    message_history = None
+    # Initialize system_message
+    system_message = None
     
     # If an initial query is provided, run it first
     if args.query:
         query = " ".join(args.query)
-        message_history = asyncio.run(run(query, message_history, log_filename=args.log))
+        system_message = asyncio.run(run(query, log_filename=args.log, system_message=system_message))
     
     # Start interactive mode
     # If we already processed a query, we'll continue from there
@@ -173,8 +158,8 @@ if __name__ == "__main__":
                 print("Goodbye!")
                 break
             if query.strip():
-                # Update message history with each interaction
-                message_history = asyncio.run(run(query, message_history))
+                # Update system message with each interaction
+                system_message = asyncio.run(run(query, log_filename=args.log, system_message=system_message))
         except KeyboardInterrupt:
             print("\nGoodbye!")
             break
