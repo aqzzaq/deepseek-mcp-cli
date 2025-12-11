@@ -28,14 +28,34 @@ python deepseek-mcp-cli-client.py
 
 In interactive mode, you can:
 - Enter natural language queries
-- The LLM remembers previous interactions (context memory)
+- The LLM remembers previous interactions using worklog-based context
 - Type `exit`, `quit`, or `q` to exit
 
 ### Command Line Arguments
-Execute a single query directly:
+
+#### Execute a single query directly:
 ```bash
 python deepseek-mcp-cli-client.py "What's in my current directory?"
 ```
+
+#### Continue from an existing worklog:
+```bash
+python deepseek-mcp-cli-client.py -l worklog_xxxx.log
+```
+
+#### Execute a query and continue from a worklog:
+```bash
+python deepseek-mcp-cli-client.py -l worklog_xxxx.log "Show me the current directory content"
+```
+
+#### View help information:
+```bash
+python deepseek-mcp-cli-client.py --help
+```
+
+### Available Options
+- `-l, --log`: Path to existing worklog file to continue conversation from
+- `query`: Optional initial query to execute
 
 ## Getting Started
 1. Install dependencies:
@@ -61,36 +81,16 @@ The framework follows a client-server architecture:
 - **MCP Protocol**: Enables communication between client and server
 - **LangChain**: Provides agent framework and tool integration
 
-## Customization
-
-### Preset Customization
-You can customize the LLM's role and behavior by modifying the preset in `deepseek-mcp-cli-client.py`:
-
-```python
-# Default preset example
-DEFAULT_PRESET = {
-    "role": "Helpful CLI Assistant",
-    "instructions": [
-        "You are a helpful CLI assistant that can execute commands and perform file operations.",
-        "Always be clear and concise in your responses.",
-        "Use the available tools to accomplish tasks when needed."
-    ]
-}
-```
-
-### Adding New Tools
-Extend the server by adding new tools in `deepseek-mcp-cli-server.py`:
-
-```python
-@tool
-async def new_tool(param: str) -> str:
-    """Description of what the tool does."""
-    # Implementation here
-    return "Result"
-```
 
 ### Context Memory
-The framework automatically maintains conversation history. You can modify this behavior in the `run()` function in the client file.
+The framework uses a worklog-based context memory system:
+
+1. **Worklog as Context**: All user interactions and AI responses are logged to a worklog file
+2. **Automatic Context Loading**: When continuing from an existing worklog, the entire conversation history is loaded as context
+3. **Minimal Memory Usage**: Only the current system configuration and worklog content are maintained in memory
+4. **Session Persistence**: Conversations can be resumed at any time by specifying the worklog file
+
+This approach reduces token usage while maintaining comprehensive context memory across sessions.
 
 ## Available Tools
 By default, the server provides these tools:
@@ -102,25 +102,32 @@ By default, the server provides these tools:
 
 ### Mandatory Worklog Feature
 
-The default preset includes a mandatory worklog requirement: all executed steps are automatically logged to a unique session log file with timestamps. This ensures a complete audit trail of all operations performed through the CLI.
+The default preset includes a mandatory worklog requirement: all user requests and AI responses are automatically logged to a session log file with timestamps. This ensures a complete audit trail of all interactions and operations performed through the CLI.
 
 #### Worklog Features:
-- Each dialogue session gets its own unique log file
-- Filenames follow the pattern: `worklog_YYYYMMDD_HHMMSS.log`
-- All executed commands are automatically logged
-- Timestamped entries in `YYYY-MM-DD HH:MM:SS` format
-- Includes both the command/action and its result
+- Each new dialogue session generates a unique log file with timestamp-based naming
+- Custom filenames are supported when continuing from existing sessions
+- All user requests are automatically logged with timestamps
+- All AI responses are automatically logged with timestamps
+- Timestamp format: `YYYY-MM-DD HH:MM:SS`
+- Serves as the context memory for continuing conversations
+- Can be used to resume conversations at any time
 
-Example log filename:
+#### Example Log Entries:
 ```
-worklog_20231101_143025.log
+[2023-11-01 14:30:25] USER REQUEST: List files in my current directory
+[2023-11-01 14:30:27] AI RESPONSE: I'll list the files in your current directory...
+[2023-11-01 14:30:28] Executing command: ls -la
+[2023-11-01 14:30:28] Command result - Exit code: 0
 ```
 
-Example worklog entry:
+#### Continuing Conversations:
+To continue a conversation from an existing worklog:
+```bash
+python deepseek-mcp-cli-client.py -l worklog_xxxxx.log
 ```
-[2023-11-01 14:30:25] Executing command: ls -la
-[2023-11-01 14:30:25] Command result - Exit code: 0
-```
+
+The entire conversation history from the worklog will be used as context for the new session.
 
 ## License
 MIT License
