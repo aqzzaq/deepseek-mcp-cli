@@ -41,9 +41,10 @@ DEFAULT_PRESET = {
 }
 
 
-async def run(query, message_history=None, preset=None):
+async def run(query, message_history=None, preset=None, log_filename=None):
     import datetime
     import re
+    import os
     
     # Use default preset if none provided
     if preset is None:
@@ -51,12 +52,19 @@ async def run(query, message_history=None, preset=None):
         
     # Initialize session parameters
     system_message = None
-    log_filename = None
     
     if message_history is None:
-        # Generate unique log filename for this session
-        session_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_filename = f"worklog_{session_id}.log"
+        # Check if log_filename is provided and exists
+        if log_filename and os.path.exists(log_filename):
+            print(f"\n=== Session Continued ===")
+            print(f"Loading from log file: {log_filename}")
+        
+        # Generate new log filename if not provided
+        if not log_filename:
+            session_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            log_filename = f"worklog_{session_id}.log"
+            print(f"\n=== Session Started ===")
+            print(f"Log file: {log_filename}")
         
         # Create system message with preset instructions and log filename
         system_message = f"ROLE: {preset['role']}\n"
@@ -67,15 +75,12 @@ async def run(query, message_history=None, preset=None):
         
         # Initialize message history with just the system message
         message_history = [("system", system_message.strip())]
-        
-        print(f"\n=== Session Started ===")
-        print(f"Log file: {log_filename}")
     else:
         # Extract system message and log filename
         for role, content in message_history:
             if role == "system":
                 system_message = content
-                match = re.search(r"MANDATORY: All worklog entries must use this filename: (worklog_\d{8}_\d{6}\.log)", content)
+                match = re.search(r"MANDATORY: All worklog entries must use this filename: (.+)", content)
                 if match:
                     log_filename = match.group(1)
                     break
@@ -140,30 +145,41 @@ async def run(query, message_history=None, preset=None):
             return [("system", system_message.strip())]
 
 if __name__ == "__main__":
+    import argparse
+    
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="Deepseek MCP CLI Client")
+    parser.add_argument("-l", "--log", help="Path to existing worklog file to continue conversation from")
+    parser.add_argument("query", nargs="*", help="Initial query (optional)")
+    args = parser.parse_args()
+    
     print("=== Deepseek MCP CLI Client ===")
     print("Type 'exit' to quit.")
     print("\nEnter your command or query:")
     
-    # If command line argument is provided, use it as the query (no history)
-    if len(sys.argv) > 1:
-        query = " ".join(sys.argv[1:])
-        asyncio.run(run(query))
-    else:
-        # Interactive mode with context memory
-        message_history = None
-        
-        while True:
-            try:
-                query = input(">>> ")
-                if query.lower() in ["exit", "quit", "q"]:
-                    print("Goodbye!")
-                    break
-                if query.strip():
-                    # Update message history with each interaction
-                    message_history = asyncio.run(run(query, message_history))
-            except KeyboardInterrupt:
-                print("\nGoodbye!")
+    # Initialize message_history
+    message_history = None
+    
+    # If an initial query is provided, run it first
+    if args.query:
+        query = " ".join(args.query)
+        message_history = asyncio.run(run(query, message_history, log_filename=args.log))
+    
+    # Start interactive mode
+    # If we already processed a query, we'll continue from there
+    # Otherwise, we'll start fresh with the provided log file (if any)
+    while True:
+        try:
+            query = input(">>> ")
+            if query.lower() in ["exit", "quit", "q"]:
+                print("Goodbye!")
                 break
-            except EOFError:
-                print("\nGoodbye!")
-                break
+            if query.strip():
+                # Update message history with each interaction
+                message_history = asyncio.run(run(query, message_history))
+        except KeyboardInterrupt:
+            print("\nGoodbye!")
+            break
+        except EOFError:
+            print("\nGoodbye!")
+            break
